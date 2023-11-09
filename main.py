@@ -1,25 +1,35 @@
 import concurrent.futures
 import subprocess
 import time
+from threading import current_thread
 
 
 # Function to run get_iplayer for a given url with verbose output
-def get_subtitles(url, attempt=1):
-    command = f"get_iplayer --force --overwrite --subtitles {url}"
-    print(f"Executing command: {command}")
-    result = subprocess.run(command, shell=True)
-    if result.returncode != 0:
-        print(f"Command failed with return code {result.returncode}.")
-        if attempt < 3:  # If this is the first attempt, try once more
-            print("Retrying...")
-            time.sleep(2)
-            return get_subtitles(url, attempt + 1)
+def get_subtitles(url, thread_number, attempt=1):
+    command = f"get_iplayer --force --subtitles {url}"
+    print(f"[Thread {thread_number}] Executing command: {command}")
+
+    try:
+        with subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, bufsize=1,
+                              universal_newlines=True) as proc:
+            for line in proc.stdout:
+                print(f"[Thread {thread_number}] {line}", end='')  # end='' avoids double newlines
+        # Check the return code after the subprocess has finished
+        if proc.returncode != 0:
+            print(f"[Thread {thread_number}] Command failed with return code {proc.returncode}.")
+            if attempt < 5:
+                print(f"[Thread {thread_number}] Retrying...")
+                time.sleep(2)
+                return get_subtitles(url, thread_number, attempt + 1)
+            else:
+                print(f"[Thread {thread_number}] Failed to process subtitles for {url} after 3 attempts.")
+                return False
         else:
-            print(f"Failed to process subtitles for {url} after 2 attempts.")
-            return False
-    else:
-        print(f"Successfully processed subtitles for {url}")
-        return True
+            print(f"[Thread {thread_number}] Successfully processed subtitles for {url}")
+            return True
+    except Exception as e:
+        print(f"[Thread {thread_number}] An error occurred: {e}")
+        return False
 
 
 # Function to process URLs with multithreading, starting a new thread every 2 seconds
@@ -28,10 +38,16 @@ def process_urls(url_file_path):
         urls = [url.strip() for url in file if url.strip()]
 
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        thread_number = 1
+        futures = []
         for url in urls:
             # Submit a new thread to the executor
-            executor.submit(get_subtitles, url)
+            future = executor.submit(get_subtitles, url, thread_number)
+            futures.append(future)
+            thread_number += 1
             time.sleep(2)  # Wait for 2 seconds before starting the next thread
+        # Wait for all futures to complete
+        concurrent.futures.wait(futures)
 
 
 # Main function
