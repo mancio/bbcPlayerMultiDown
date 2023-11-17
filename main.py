@@ -1,7 +1,26 @@
 import concurrent.futures
 import subprocess
 import time
-from threading import current_thread
+import requests
+from dotenv import load_dotenv
+import os
+
+# Load the environment variables from .env file
+load_dotenv()
+
+
+def am_i_connected_from_uk():
+    # Replace 'YOUR_API_KEY' with your actual API key for the IP geolocation service
+    api_key = os.getenv('IPSTACK_API_KEY')
+    url = f"http://api.ipstack.com/check?access_key={api_key}"
+
+    try:
+        response = requests.get(url)
+        data = response.json()
+        return data['country_code'] == 'GB'
+    except requests.RequestException as e:
+        print(f"Error: {e}")
+        return False
 
 
 # Function to run get_iplayer for a given url with verbose output
@@ -52,10 +71,14 @@ def process_urls(url_file_path):
 
 # Main function
 def main():
-    url_file_path = 'urls.txt'
-    print("Starting the subtitle download process.")
-    process_urls(url_file_path)
-    print("Subtitle download process completed.")
+    if am_i_connected_from_uk():
+        print("You are in UK I will try to download...")
+        url_file_path = 'urls.txt'
+        print("Starting the subtitle download process.")
+        process_urls(url_file_path)
+        print("Subtitle download process completed.")
+    else:
+        print("your IP is not in UK you need a VPN. Your antivirus can interfere.")
 
 
 if __name__ == "__main__":
