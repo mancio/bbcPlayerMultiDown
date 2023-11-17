@@ -4,9 +4,30 @@ import time
 import requests
 from dotenv import load_dotenv
 import os
+import speedtest
 
 # Load the environment variables from .env file
 load_dotenv()
+
+
+def check_download_speed():
+    st = speedtest.Speedtest(secure=True)
+    st.download()
+    download_speed_mbps = st.results.download / 1024 / 1024  # Convert from bits per second to Mbps
+    download_speed_mbs = download_speed_mbps / 8  # Convert Mbps to MB/s
+    return download_speed_mbps, download_speed_mbs
+
+
+def estimate_download_time(urls, file_size_gb, speed_mbs):
+    total_size_gb = len(urls) * file_size_gb
+    total_size_mb = total_size_gb * 1024  # Convert GB to MB
+    estimated_time_seconds = total_size_mb / speed_mbs
+
+    # Convert seconds into hh:mm:ss format
+    hours = estimated_time_seconds // 3600
+    minutes = (estimated_time_seconds % 3600) // 60
+    seconds = estimated_time_seconds % 60
+    return f"{int(hours):02d}:{int(minutes):02d}:{int(seconds):02d}"
 
 
 def am_i_connected_from_uk():
@@ -54,8 +75,10 @@ def get_subtitles(url, thread_number, attempt=1):
 # Function to process URLs with multithreading, starting a new thread every 2 seconds
 def process_urls(url_file_path):
     with open(url_file_path, 'r') as file:
-        urls = [url.strip() for url in file if url.strip()]
+        return [url.strip() for url in file if url.strip()]
 
+
+def run_concurrent(urls):
     with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
         thread_number = 1
         futures = []
@@ -73,9 +96,16 @@ def process_urls(url_file_path):
 def main():
     if am_i_connected_from_uk():
         print("You are in UK I will try to download...")
-        url_file_path = 'urls.txt'
+        speed_mbps, speed_mbs = check_download_speed()
+        print("Checking download speed please wait...")
+        print(f"Download Speed: {speed_mbps:.2f} Mbps ({speed_mbs:.2f} MB/s)")
+
+        urls = process_urls('urls.txt')
+        estimated = estimate_download_time(urls, 2, speed_mbs)
+        print("estimated time " + estimated)
+
         print("Starting the subtitle download process.")
-        process_urls(url_file_path)
+        run_concurrent(urls)
         print("Subtitle download process completed.")
     else:
         print("your IP is not in UK you need a VPN. Your antivirus can interfere.")
