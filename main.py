@@ -59,7 +59,7 @@ def get_subtitles(url, thread_number, attempt=1):
             print(f"[Thread {thread_number}] Command failed with return code {proc.returncode}.")
             if attempt < 5:
                 print(f"[Thread {thread_number}] Retrying...")
-                time.sleep(2)
+                time.sleep(10)
                 return get_subtitles(url, thread_number, attempt + 1)
             else:
                 print(f"[Thread {thread_number}] Failed to process subtitles for {url} after 3 attempts.")
@@ -87,7 +87,7 @@ def run_concurrent(urls):
             future = executor.submit(get_subtitles, url, thread_number)
             futures.append(future)
             thread_number += 1
-            time.sleep(2)  # Wait for 2 seconds before starting the next thread
+            time.sleep(120)  # Wait for 2 min before starting the next thread
         # Wait for all futures to complete
         concurrent.futures.wait(futures)
 
